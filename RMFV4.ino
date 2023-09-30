@@ -1,11 +1,11 @@
 #define ZeroError 0.8
 int j;
 
-const int EnablePin =  7; 
-const int decoderSelectPins[] = { 10, 11, 12 };// A0, A1, A2
-const int numPins = 6;                                      
-const int burningConstant = 2;  // arbitrarily chosen value                               
-const int numStates = 1 << numPins - 2; //only 6 leds 
+const int EnablePin = 9;
+const int decoderSelectPins[] = { 10, 11, 12 };  // A0, A1, A2
+const int numPins = 6;
+const int burningConstant = 2;           // arbitrarily chosen value
+const int numStates = 1 << numPins - 2;  //only 6 leds
 
 //Frequency
 const int RphaseIntPin = 2;
@@ -15,7 +15,7 @@ volatile unsigned long endTime = 0;
 volatile bool risingEdge = false;
 volatile bool measureFrequency = false;
 const float minFrequency = 0.0;
-const float maxFrequency = 15.0;
+const float maxFrequency = 50.0;
 
 void setup() {
 
@@ -24,7 +24,7 @@ void setup() {
   for (int pin : decoderSelectPins) {
     pinMode(pin, OUTPUT);
   }
-  digitalWrite(EnablePin, HIGH);// HIGH => OUTPUTS DISABLED ; LOW => OUTPUTS ENABLED
+  digitalWrite(EnablePin, HIGH);  // HIGH => OUTPUTS DISABLED ; LOW => OUTPUTS ENABLED
   attachInterrupt(digitalPinToInterrupt(RphaseIntPin), handleInterrupt, CHANGE);
   Serial.begin(9600);
 }
@@ -33,24 +33,47 @@ void loop() {
   // measureFrequency = true;
   // delay(500);
   // measureFrequency = false;
-  frequency = 1;
+  frequency = 2;
   if (isValidFrequency(frequency)) {
-    // Serial.print("Frequency: ");
-    // Serial.println(frequency);
-    float timePeriod = (1 / frequency)*100;// Very important.
-    delay(timePeriod / 4);  // Flux - voltage delay.
-    delay(timePeriod / 4);  // wait for R peak.
+    Serial.print("Frequency: ");
+    Serial.println(frequency);
+    float timePeriod = (1 / frequency) * 100;  // Very important.
+    delay(timePeriod / 4);                     // Flux - voltage delay.
+    delay(timePeriod / 4);                     // wait for R peak.
     for (j = 0; j < numPins; j++) {
       digitalWrite(decoderSelectPins[j], bitRead(0, j));
-    }  
-    delay(timePeriod / burningConstant);  // led 1 burns for timePeriod/8 ms (8ms randomly chosen)
-    forwardAndReverseSequence(timePeriod , 1);
-  }
+    }
 
+    digitalWrite(EnablePin, HIGH);// OUTPUTS ENABLED
+    delay(timePeriod / burningConstant);  // led 1 burns for timePeriod/8 ms (8ms randomly chosen)
+    digitalWrite(EnablePin, LOW);// OUTPUTS DISABLED
+    
+    forwardAndReverseSequence(timePeriod , 1);
+
+  }
 }
 
 bool isValidFrequency(float freq) {
   return freq >= minFrequency && freq <= maxFrequency;
+}
+
+void forwardAndReverseSequence(int delayTime, bool direction) {
+  int start = direction ? 0 : numPins - 1;
+  int end = direction ? numPins : -1;
+  int step = direction ? 1 : -1;
+  unsigned long startMillis = millis();
+  while (millis() - startMillis < 5000) {
+    for (int i = start; i != end; i += step) {
+
+      delay(delayTime / 24);
+      for (j = 0; j < numPins; j++) {
+        digitalWrite(decoderSelectPins[j], bitRead(i, j));
+      }                                    // led 'i' is fired
+      digitalWrite(EnablePin, LOW);        // OUTPUTS ENABLED
+      delay(delayTime / burningConstant);  // led 'i' burns for timePeriod/8 ms
+      digitalWrite(EnablePin, HIGH);       // OUTPUTS DISABLED
+    }
+  }
 }
 
 void handleInterrupt() {
@@ -67,19 +90,5 @@ void handleInterrupt() {
       frequency = 1.0 / ((endTime - startTime) * 1e-6);
       frequency = frequency / 2 + ZeroError;
     }
-  }
-}
-
-void forwardAndReverseSequence(int delayTime, bool direction) {
-  int start = direction ? 0 : numPins - 1;
-  int end = direction ? numPins : -1;
-  int step = direction ? 1 : -1;
-
-  for (int i = start; i != end; i += step) {
-    delay(delayTime / 24);
-    for (j = 0; j < numPins; j++) {
-      digitalWrite(decoderSelectPins[j], bitRead(i, j));
-    }
-    delay(delayTime / 8);
   }
 }
