@@ -1,15 +1,18 @@
+#include <Adafruit_NeoPixel.h>
 #define ZeroError 0.8
+#define buringConstant 1
+
+#define LED_PIN    7
+#define LED_COUNT 10
+
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
 int j;
 
-const int EnablePin = 9;
-const int decoderSelectPins[] = { 10, 11, 12 };  // A0, A1, A2
-const int numPins = 6;
-const int burningConstant = 2;           // arbitrarily chosen value
-const int numStates = 1 << numPins - 2;  //only 6 leds
 
 //Frequency
 const int RphaseIntPin = 2;
-float frequency = 0.0;
+float frequency = 15;
 volatile unsigned long startTime = 0;
 volatile unsigned long endTime = 0;
 volatile bool risingEdge = false;
@@ -18,66 +21,36 @@ const float minFrequency = 0.0;
 const float maxFrequency = 50.0;
 
 void setup() {
-
-  pinMode(EnablePin, OUTPUT);
   pinMode(RphaseIntPin, INPUT_PULLUP);
-  for (int pin : decoderSelectPins) {
-    pinMode(pin, OUTPUT);
-  }
-  digitalWrite(EnablePin, HIGH);  // HIGH => OUTPUTS DISABLED ; LOW => OUTPUTS ENABLED
   attachInterrupt(digitalPinToInterrupt(RphaseIntPin), handleInterrupt, CHANGE);
+  strip.begin();       
+  strip.show();
+  strip.setBrightness(150);
   Serial.begin(9600);
 }
 
 void loop() {
+  frequency = 55;
   // measureFrequency = true;
-  // delay(500);
+  // delay(600);
+  calcuatingFreqPattern(5);
   // measureFrequency = false;
-  frequency = 2;
+  
   if (isValidFrequency(frequency)) {
     Serial.print("Frequency: ");
     Serial.println(frequency);
-    float timePeriod = (1 / frequency) * 100;  // Very important.
-    delay(timePeriod / 4);                     // Flux - voltage delay.
-    delay(timePeriod / 4);                     // wait for R peak.
-    for (j = 0; j < numPins; j++) {
-      digitalWrite(decoderSelectPins[j], bitRead(0, j));
-    }
-
-    digitalWrite(EnablePin, HIGH);// OUTPUTS ENABLED
-    delay(timePeriod / burningConstant);  // led 1 burns for timePeriod/8 ms (8ms randomly chosen)
-    digitalWrite(EnablePin, LOW);// OUTPUTS DISABLED
-    
-    forwardAndReverseSequence(timePeriod , 1);
-
+    float timePeriod = (1 / frequency) * 1000;  // Very important.
+    NorthSouthChasing(timePeriod/buringConstant);
+    // delay(timePeriod / 4);                     // Flux - voltage delay.
+    // delay(timePeriod / 4);                     // wait for R peak.  
   }
 }
 
 bool isValidFrequency(float freq) {
   return freq >= minFrequency && freq <= maxFrequency;
-}
-
-void forwardAndReverseSequence(int delayTime, bool direction) {
-  int start = direction ? 0 : numPins - 1;
-  int end = direction ? numPins : -1;
-  int step = direction ? 1 : -1;
-  unsigned long startMillis = millis();
-  while (millis() - startMillis < 5000) {
-    for (int i = start; i != end; i += step) {
-
-      delay(delayTime / 24);
-      for (j = 0; j < numPins; j++) {
-        digitalWrite(decoderSelectPins[j], bitRead(i, j));
-      }                                    // led 'i' is fired
-      digitalWrite(EnablePin, LOW);        // OUTPUTS ENABLED
-      delay(delayTime / burningConstant);  // led 'i' burns for timePeriod/8 ms
-      digitalWrite(EnablePin, HIGH);       // OUTPUTS DISABLED
-    }
-  }
-}
-
+}       
 void handleInterrupt() {
-  delayMicroseconds(100);  // Give some time for the processor to handle interrupts.
+  delay(100);
   if (measureFrequency) {
     int sensorValue = digitalRead(RphaseIntPin);
 
@@ -90,5 +63,23 @@ void handleInterrupt() {
       frequency = 1.0 / ((endTime - startTime) * 1e-6);
       frequency = frequency / 2 + ZeroError;
     }
+  }
+}
+void NorthSouthChasing(float wait) {
+  for (int i = 0; i < strip.numPixels(); i++) {
+    int redIndex = i; // Offset for the red light
+    int blueIndex = (i + 5) % strip.numPixels(); // Offset for the blue light with a fixed offset of 4
+    strip.clear();
+    strip.setPixelColor(redIndex, strip.Color(255, 1,5)); // Set the main red pixel
+    strip.setPixelColor(blueIndex, strip.Color(5, 1,255)); // Set the main blue pixel
+    strip.show();
+    delay(wait);
+  }
+}
+void calcuatingFreqPattern(int wait) {
+  for(long firstPixelHue = 0; firstPixelHue < 5*65536; firstPixelHue += 256) {
+    strip.rainbow(firstPixelHue);
+    strip.show(); 
+    delay(wait);
   }
 }
