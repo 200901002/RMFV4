@@ -24,34 +24,18 @@ void setup() {
 }
 
 void loop() {
-  measureFrequency = true;
   if (frequency >= MIN_FREQ && frequency <= MAX_FREQ) {
     float timePeriod = (1 / frequency) * 1000;
-    for(int i = 0; i < LED_COUNT; i++){
-      northSouthChasing(i, timePeriod / LED_COUNT);
+    for (int i = 0; i < 10; i++){
+    northSouthChasing(timePeriod / LED_COUNT);
     }
     delay(timePeriod / (LED_COUNT * 4)); 
     delay(timePeriod / (LED_COUNT * 4));
   } 
-  else if(frequency>25.0 && frequency<50.0){
-    float timePeriod = (1 / 38) * 1000;
-    for(int i = 0; i < LED_COUNT; i++){
-      northSouthChasing(i, timePeriod / LED_COUNT);
-    }
-  }
-  else{
-    strip.clear();
-    strip.setPixelColor(LED_COUNT / 2, strip.Color(255, 255, 0));
-    strip.show();
-    delay(500);
-    strip.clear();
-    strip.show();
-    delay(500);
-  }
 }
 
 void handleInterrupt() {
-  delayMicroseconds(100);
+  delayMicroseconds(50);
   if (measureFrequency) {
     int sensorValue = digitalRead(RPhase);
     if (sensorValue == HIGH && !risingEdge) {
@@ -65,12 +49,15 @@ void handleInterrupt() {
   }
 }
 
-void northSouthChasing(int index, float wait) {
+void northSouthChasing(float wait) {
+
+  for(int i = 0; i < LED_COUNT; i++){
+    int index = i;
     int redIndex = index;
     int blueIndex = (index + (LED_COUNT / 2)) % LED_COUNT;
     strip.clear(); 
     strip.setPixelColor(redIndex, strip.Color(255, 0,0));
-    strip.setPixelColor(blueIndex, strip.Color(0, 0, 255));
     strip.show();
     delay(wait);
+  }
 }
